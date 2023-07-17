@@ -441,6 +441,11 @@ struct FileBrowserView: View {
                 }
                 .padding()
 
+                // “Terminal”按钮，点击后打开当前目录的终端。
+                Button("Terminal") {
+                    self.openTerminal(at: self.currentDirectory.path)
+                }
+                .padding()
 
 
 
@@ -538,6 +543,13 @@ struct FileBrowserView: View {
             searchResults = results
         }
     }
+    
+    func openTerminal(at path: String) {
+        NSWorkspace.shared.openFile(path, withApplication: "Terminal")
+    }
+
+
+    
     private func convertURLsToStrings(_ urls: [URL]) -> [String] {
         return urls.map { $0.path }
     }
