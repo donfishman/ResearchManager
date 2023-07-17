@@ -390,8 +390,9 @@ struct FileBrowserView: View {
                         if value.hasPrefix("/") {
                             let url = URL(fileURLWithPath: value)
                             if FileManager.default.fileExists(atPath: url.path) {
-                                UserDefaults.standard.set(previousDirectories, forKey: "previousDirectories")
-
+                                // 添加搜索前的路径到历史记录中
+                                previousDirectories.append(currentDirectory.path)
+                                
                                 currentDirectory = url
                                 loadFiles()
                             }
@@ -406,7 +407,8 @@ struct FileBrowserView: View {
                     Menu {
                         ForEach(searchResults, id: \.self) { url in
                             Button(action: {
-                                UserDefaults.standard.set(previousDirectories, forKey: "previousDirectories")
+                                // 添加搜索前的路径到历史记录中
+                                previousDirectories.append(currentDirectory.path)
 
                                 currentDirectory = url.deletingLastPathComponent()
                                 loadFiles()
