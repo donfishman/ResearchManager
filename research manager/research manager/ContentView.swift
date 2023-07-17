@@ -423,7 +423,8 @@ struct FileBrowserView: View {
                 }
                 .padding()
             }
-
+            DirectoryPathView(path: currentDirectory.path)
+                    .padding(.bottom, 10)
             // 文件和目录列表区域
             List(files, id: \.self) { url in
                 Text(url.lastPathComponent)
@@ -546,4 +547,31 @@ struct TabData: Identifiable, Codable {
     var id: Int // 标签页的唯一标识符。
     var title: String // 标签页的标题。
     var currentDirectory: String // 当前显示的目录的路径。
+}
+
+struct DirectoryPathView: View {
+    let path: String
+
+    var body: some View {
+        HStack {
+            Image(systemName: "folder")
+            Text(path)
+        }
+        .contextMenu {
+            Button(action: {
+                let pasteboard = NSPasteboard.general
+                pasteboard.declareTypes([.string], owner: nil)
+                pasteboard.setString(path, forType: .string)
+            }) {
+                Text("Copy Path")
+                Image(systemName: "doc.on.doc")
+            }
+            Button(action: {
+                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+            }) {
+                Text("Show in Finder")
+                Image(systemName: "eye")
+            }
+        }
+    }
 }
