@@ -342,11 +342,14 @@ struct FileBrowserView: View {
     @State private var searchResults: [URL] = [] // 搜索结果列表。
     @State private var previousDirectories: [URL] = [] // 访问过的目录路径的历史记录。
     @State private var inputPath = "" // 输入的路径。
-
+    
     init(tabData: Binding<TabData>) {
         _tabData = tabData
         _currentDirectory = State(initialValue: FileManager.default.homeDirectoryForCurrentUser) // 初始目录设为用户的主目录。
+        _previousDirectories = State(initialValue: []) // 现在，我们初始化一个空的数组
     }
+
+
 
     var body: some View {
         VStack {
@@ -363,6 +366,8 @@ struct FileBrowserView: View {
                     }
                     .padding()
                 }
+
+
 
                 // 文件搜索和路径输入框
                 TextField("Search or input path", text: $inputPath)
@@ -409,13 +414,15 @@ struct FileBrowserView: View {
                     openPanel.allowsMultipleSelection = false
                     if openPanel.runModal() == .OK {
                         if let url = openPanel.url {
-                            previousDirectories.append(currentDirectory)
+                            previousDirectories.removeAll() // 添加这一行来清空数组
                             currentDirectory = url
                             loadFiles()
                         }
                     }
                 }
                 .padding()
+
+
 
                 // “刷新”按钮，点击后刷新当前目录下的文件和目录列表。
                 Button("刷新") {
