@@ -5,7 +5,7 @@ struct ContentView: View {
     
     // 用于 TabView 的变量
     @State private var selectedTab = 0 // 用来追踪哪个标签被选中
-    @State private var tabs = [TabData(id: 0, title: "Tab 1", currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path)] // 存储标签数据的数组
+    @State private var tabs = [TabData(id: 0, title: "Tab 1", currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path, previousDirectories: [])] // 存储标签数据的数组
     @State private var newTitle = "" // 在重命名标签时，存储新标题的变量
     @State private var isRenaming = false // 用来判断是否正在重命名标签的布尔值
     
@@ -56,12 +56,12 @@ struct ContentView: View {
             }
 
             // 一系列按钮，用于管理标签
-            HStack {
-                Button("添加标签页") {
-                    let newTab = TabData(id: tabs.count, title: "Tab \(tabs.count + 1)", currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path)
-                    tabs.append(newTab)
-                    saveTabs()
-                }
+                        HStack {
+                            Button("添加标签页") {
+                                let newTab = TabData(id: tabs.count, title: "Tab \(tabs.count + 1)", currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path, previousDirectories: [])
+                                tabs.append(newTab)
+                                saveTabs()
+                            }
 
                 Button("删除当前标签页") {
                     if tabs.count > 1 {
@@ -340,14 +340,22 @@ struct FileBrowserView: View {
     @State private var files: [URL] = [] // 当前目录下的文件和目录列表。
     @State private var currentDirectory: URL // 当前的目录。
     @State private var searchResults: [URL] = [] // 搜索结果列表。
-    @State private var previousDirectories: [URL] = [] // 访问过的目录路径的历史记录。
+    @State private var previousDirectories: [String] = [] // 访问过的目录路径的历史记录。
     @State private var inputPath = "" // 输入的路径。
     
     init(tabData: Binding<TabData>) {
         _tabData = tabData
         _currentDirectory = State(initialValue: FileManager.default.homeDirectoryForCurrentUser) // 初始目录设为用户的主目录。
-        _previousDirectories = State(initialValue: []) // 现在，我们初始化一个空的数组
+
+        // 从 UserDefaults 中获取之前保存的目录历史记录
+        if let previousDirectoryStrings = UserDefaults.standard.array(forKey: "previousDirectoriesForTab\(tabData.id)") as? [String] {
+            _previousDirectories = State(initialValue: previousDirectoryStrings)
+        } else {
+            _previousDirectories = State(initialValue: [])
+        }
     }
+
+
 
 
 
@@ -359,13 +367,17 @@ struct FileBrowserView: View {
                 if !previousDirectories.isEmpty {
                     Button("返回上一级") {
                         if let lastDirectory = previousDirectories.last {
-                            currentDirectory = lastDirectory
+                            currentDirectory = URL(fileURLWithPath: lastDirectory)
                             previousDirectories.removeLast()
                             loadFiles() // 加载当前目录下的文件和目录列表。
+
+                            // 在这里更新 UserDefaults 中保存的目录历史记录
+                            UserDefaults.standard.set(previousDirectories, forKey: "previousDirectoriesForTab\(tabData.id)")
                         }
                     }
                     .padding()
                 }
+
 
 
 
@@ -378,7 +390,8 @@ struct FileBrowserView: View {
                         if value.hasPrefix("/") {
                             let url = URL(fileURLWithPath: value)
                             if FileManager.default.fileExists(atPath: url.path) {
-                                previousDirectories.append(currentDirectory)
+                                UserDefaults.standard.set(previousDirectories, forKey: "previousDirectories")
+
                                 currentDirectory = url
                                 loadFiles()
                             }
@@ -393,7 +406,8 @@ struct FileBrowserView: View {
                     Menu {
                         ForEach(searchResults, id: \.self) { url in
                             Button(action: {
-                                previousDirectories.append(currentDirectory)
+                                UserDefaults.standard.set(previousDirectories, forKey: "previousDirectories")
+
                                 currentDirectory = url.deletingLastPathComponent()
                                 loadFiles()
                             }) {
@@ -414,13 +428,17 @@ struct FileBrowserView: View {
                     openPanel.allowsMultipleSelection = false
                     if openPanel.runModal() == .OK {
                         if let url = openPanel.url {
-                            previousDirectories.removeAll() // 添加这一行来清空数组
+                            previousDirectories = [] // 清空 previousDirectories
                             currentDirectory = url
                             loadFiles()
+
+                            // 在这里更新 UserDefaults 中保存的目录历史记录
+                            UserDefaults.standard.set(previousDirectories, forKey: "previousDirectoriesForTab\(tabData.id)")
                         }
                     }
                 }
                 .padding()
+
 
 
 
@@ -438,7 +456,7 @@ struct FileBrowserView: View {
                     .foregroundColor(url.hasDirectoryPath ? .blue : .red) // 目录的名字显示为蓝色，文件的名字显示为红色。
                     .onTapGesture(count: 2) { // 双击后，如果是目录则进入，如果是文件则尝试打开。
                         if url.hasDirectoryPath {
-                            previousDirectories.append(currentDirectory)
+                            previousDirectories.append(currentDirectory.path)
                             currentDirectory = url
                             loadFiles()
                         } else {
@@ -488,11 +506,14 @@ struct FileBrowserView: View {
             }.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
 
             tabData.currentDirectory = currentDirectory.path
+            tabData.previousDirectories = previousDirectories // 更新历史记录。
             UserDefaults.standard.set(tabData.currentDirectory, forKey: "tab\(tabData.id)")
         } catch {
             print("Failed to load files: \(error)")
         }
+        UserDefaults.standard.set(previousDirectories, forKey: "previousDirectoriesForTab\(tabData.id)")
     }
+
 
     // 搜索当前目录及其子目录下的文件和目录。
     private func searchFiles() {
@@ -515,6 +536,14 @@ struct FileBrowserView: View {
             searchResults = results
         }
     }
+    private func convertURLsToStrings(_ urls: [URL]) -> [String] {
+        return urls.map { $0.path }
+    }
+
+    private func convertStringsToURLs(_ strings: [String]) -> [URL] {
+        return strings.map { URL(fileURLWithPath: $0) }
+    }
+
 }
 
 extension FileBrowserView: DropDelegate {
@@ -554,7 +583,9 @@ struct TabData: Identifiable, Codable {
     var id: Int // 标签页的唯一标识符。
     var title: String // 标签页的标题。
     var currentDirectory: String // 当前显示的目录的路径。
+    var previousDirectories: [String] // 访问过的目录路径的历史记录。
 }
+
 
 struct DirectoryPathView: View {
     let path: String
